@@ -1,0 +1,746 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Self-Describing Numbers — Interactive Verifier</title>
+    <style>
+      :root {
+        --bg: #0b0e14;
+        --surface: #131720;
+        --surface-2: #1a1f2b;
+        --border: #232a38;
+        --text: #e6e9ef;
+        --muted: #8b94a7;
+        --accent: #6ee7b7;
+        --accent-dim: #2dd4bf;
+        --danger: #f87171;
+        --warning: #fbbf24;
+        --mono:
+          ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+        --sans:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+          sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        font-family: var(--sans);
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+        min-height: 100vh;
+        -webkit-font-smoothing: antialiased;
+        background-image:
+          radial-gradient(
+            ellipse 80% 50% at 50% -20%,
+            rgba(110, 231, 183, 0.08),
+            transparent
+          ),
+          radial-gradient(
+            ellipse 60% 40% at 80% 100%,
+            rgba(45, 212, 191, 0.05),
+            transparent
+          );
+      }
+
+      .wrap {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      header {
+        padding: 72px 0 48px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        padding: 6px 12px;
+        border: 1px solid rgba(110, 231, 183, 0.25);
+        border-radius: 999px;
+        background: rgba(110, 231, 183, 0.06);
+        margin-bottom: 24px;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        box-shadow: 0 0 12px var(--accent);
+        animation: pulse 2.4s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+
+      h1 {
+        font-size: clamp(32px, 5vw, 52px);
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
+        margin-bottom: 16px;
+        background: linear-gradient(180deg, #fff 0%, #a8b3c7 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .lede {
+        font-size: 18px;
+        color: var(--muted);
+        max-width: 620px;
+      }
+
+      .lede code {
+        font-family: var(--mono);
+        font-size: 0.9em;
+        color: var(--accent-dim);
+        background: rgba(45, 212, 191, 0.08);
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+
+      main {
+        padding: 56px 0 96px;
+      }
+
+      section {
+        margin-bottom: 64px;
+      }
+
+      .section-head {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        margin-bottom: 24px;
+      }
+
+      h2 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+
+      .section-num {
+        font-family: var(--mono);
+        font-size: 12px;
+        color: var(--muted);
+        letter-spacing: 0.05em;
+      }
+
+      /* Verifier card */
+      .verifier {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 32px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .verifier::before {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          var(--accent),
+          transparent
+        );
+        opacity: 0.6;
+      }
+
+      .input-row {
+        display: flex;
+        gap: 12px;
+        margin-bottom: 24px;
+      }
+
+      .input-row input {
+        flex: 1;
+        font-family: var(--mono);
+        font-size: 20px;
+        padding: 16px 20px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        color: var(--text);
+        outline: none;
+        transition:
+          border-color 0.15s,
+          box-shadow 0.15s;
+      }
+
+      .input-row input:focus {
+        border-color: var(--accent-dim);
+        box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.12);
+      }
+
+      .input-row input::placeholder {
+        color: #4b5363;
+      }
+
+      .input-row button {
+        font-family: var(--sans);
+        font-size: 15px;
+        font-weight: 600;
+        padding: 16px 28px;
+        background: var(--accent);
+        color: #06251c;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition:
+          transform 0.1s,
+          box-shadow 0.15s,
+          background 0.15s;
+        box-shadow: 0 4px 20px rgba(110, 231, 183, 0.2);
+      }
+
+      .input-row button:hover {
+        background: #86efac;
+        box-shadow: 0 6px 28px rgba(110, 231, 183, 0.3);
+      }
+
+      .input-row button:active {
+        transform: translateY(1px);
+      }
+
+      .input-row button:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* Result area */
+      .result {
+        min-height: 120px;
+        display: grid;
+        gap: 16px;
+      }
+
+      .verdict {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 18px;
+        font-weight: 600;
+        padding: 16px 20px;
+        border-radius: 10px;
+        border: 1px solid transparent;
+        opacity: 0;
+        transform: translateY(6px);
+        transition:
+          opacity 0.25s,
+          transform 0.25s;
+      }
+
+      .verdict.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .verdict.pass {
+        background: rgba(110, 231, 183, 0.08);
+        border-color: rgba(110, 231, 183, 0.3);
+        color: var(--accent);
+      }
+
+      .verdict.fail {
+        background: rgba(248, 113, 113, 0.08);
+        border-color: rgba(248, 113, 113, 0.3);
+        color: var(--danger);
+      }
+
+      .verdict .mark {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        font-family: var(--mono);
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+
+      .verdict.pass .mark {
+        background: rgba(110, 231, 183, 0.15);
+      }
+      .verdict.fail .mark {
+        background: rgba(248, 113, 113, 0.15);
+      }
+
+      .breakdown {
+        display: grid;
+        gap: 8px;
+        opacity: 0;
+        transition: opacity 0.3s 0.1s;
+      }
+
+      .breakdown.show {
+        opacity: 1;
+      }
+
+      .bd-row {
+        display: grid;
+        grid-template-columns: 48px 1fr 100px 100px 32px;
+        gap: 12px;
+        align-items: center;
+        font-family: var(--mono);
+        font-size: 13px;
+        padding: 10px 14px;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+      }
+
+      .bd-row.head {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-size: 11px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding-bottom: 4px;
+      }
+
+      .bd-pos {
+        color: var(--muted);
+      }
+      .bd-digit {
+        color: var(--accent-dim);
+        font-weight: 600;
+      }
+      .bd-cell.ok {
+        color: var(--accent);
+      }
+      .bd-cell.bad {
+        color: var(--danger);
+      }
+      .bd-flag {
+        text-align: center;
+      }
+
+      /* Number catalogue */
+      .catalogue {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 10px;
+      }
+
+      .num-card {
+        font-family: var(--mono);
+        font-size: 18px;
+        font-weight: 600;
+        padding: 18px 16px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        text-align: center;
+        color: var(--text);
+        cursor: pointer;
+        transition:
+          border-color 0.15s,
+          background 0.15s,
+          transform 0.1s;
+        user-select: all;
+      }
+
+      .num-card:hover {
+        border-color: var(--accent-dim);
+        background: var(--surface-2);
+      }
+
+      .num-card:active {
+        transform: scale(0.98);
+      }
+
+      .num-card:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* Concept explainer */
+      .concept {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+      }
+
+      .concept-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+      }
+
+      .concept-card h3 {
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: var(--accent-dim);
+      }
+
+      .concept-card p {
+        font-size: 14px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .concept-card code {
+        font-family: var(--mono);
+        font-size: 0.88em;
+        color: var(--text);
+        background: var(--bg);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+
+      footer {
+        border-top: 1px solid var(--border);
+        padding: 32px 0;
+        font-size: 13px;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+
+      footer a {
+        color: var(--accent-dim);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: border-color 0.15s;
+      }
+
+      footer a:hover {
+        border-bottom-color: var(--accent-dim);
+      }
+
+      .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+      }
+
+      @media (max-width: 640px) {
+        header {
+          padding: 48px 0 32px;
+        }
+        .verifier {
+          padding: 20px;
+        }
+        .input-row {
+          flex-direction: column;
+        }
+        .input-row button {
+          padding: 14px 20px;
+        }
+        .bd-row {
+          grid-template-columns: 40px 1fr 70px 70px 24px;
+          font-size: 12px;
+          gap: 8px;
+          padding: 8px 10px;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <span class="eyebrow">Number Theory · Utility</span>
+        <h1>Self-Describing Numbers</h1>
+        <p class="lede">
+          An integer is self-describing when the digit at each position
+          <code>i</code>
+          equals the number of times the digit
+          <code>i</code>
+          appears in the number. Enter a value below to verify it.
+        </p>
+      </header>
+
+      <main>
+        <section aria-labelledby="verify-head">
+          <div class="section-head">
+            <span class="section-num">01</span>
+            <h2 id="verify-head">Verifier</h2>
+          </div>
+
+          <div class="verifier">
+            <form class="input-row" id="verify-form" autocomplete="off">
+              <label for="number-input" class="sr-only">
+                Enter a positive integer
+              </label>
+              <input
+                id="number-input"
+                name="number"
+                type="text"
+                inputmode="numeric"
+                pattern="[0-9]+"
+                placeholder="e.g. 2020"
+                aria-describedby="input-hint"
+              />
+              <button type="submit">Verify</button>
+            </form>
+
+            <p id="input-hint" class="sr-only">
+              Enter a positive integer with no signs, spaces, or decimal points.
+            </p>
+
+            <div class="result" aria-live="polite" id="result-area"></div>
+          </div>
+        </section>
+
+        <section aria-labelledby="catalogue-head">
+          <div class="section-head">
+            <span class="section-num">02</span>
+            <h2 id="catalogue-head">Known values below 100,000,000</h2>
+          </div>
+
+          <div class="catalogue" id="catalogue"></div>
+        </section>
+
+        <section aria-labelledby="concept-head">
+          <div class="section-head">
+            <span class="section-num">03</span>
+            <h2 id="concept-head">How it works</h2>
+          </div>
+
+          <div class="concept">
+            <div class="concept-card">
+              <h3>Position labels</h3>
+              <p>
+                Each digit position is labeled from
+                <code>0</code>
+                to
+                <code>N-1</code>
+                , left to right, where
+                <code>N</code>
+                is the total number of digits.
+              </p>
+            </div>
+            <div class="concept-card">
+              <h3>Digit value</h3>
+              <p>
+                The value stored at position
+                <code>i</code>
+                declares how many times the digit
+                <code>i</code>
+                should appear across the entire number.
+              </p>
+            </div>
+            <div class="concept-card">
+              <h3>Frequency check</h3>
+              <p>
+                For every position
+                <code>i</code>
+                , we count occurrences of digit
+                <code>i</code>
+                . The digit at position
+                <code>i</code>
+                must match that count exactly.
+              </p>
+            </div>
+            <div class="concept-card">
+              <h3>Leading zeroes</h3>
+              <p>
+                Numbers are treated as written with no leading zeroes. So
+                <code>1210</code>
+                has four positions, not five.
+              </p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <span>
+          Built as a reference implementation. No tracking, no cookies.
+        </span>
+        <a href="#verify-head">Back to top ↑</a>
+      </footer>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        const KNOWN = [1210, 2020, 21200, 3211000, 42101000];
+
+        function countDigits(str) {
+          const counts = new Map();
+          for (const ch of str) {
+            counts.set(ch, (counts.get(ch) || 0) + 1);
+          }
+          return counts;
+        }
+
+        function analyze(input) {
+          const str = String(input);
+          const len = str.length;
+          const counts = countDigits(str);
+          const rows = [];
+          let pass = true;
+
+          for (let i = 0; i < len; i++) {
+            const declared = Number(str[i]);
+            const actual = counts.get(String(i)) || 0;
+            const ok = declared === actual;
+            if (!ok) pass = false;
+            rows.push({ position: i, declared, actual, ok });
+          }
+
+          return { pass, rows, length: len };
+        }
+
+        function render(input) {
+          const area = document.getElementById("result-area");
+          const trimmed = String(input).trim();
+
+          if (!/^[0-9]+$/.test(trimmed)) {
+            area.innerHTML = "";
+            const bad = document.createElement("div");
+            bad.className = "verdict fail show";
+            bad.innerHTML =
+              '<span class="mark">!</span><span>Enter a positive integer using digits 0–9 only.</span>';
+            area.appendChild(bad);
+            return;
+          }
+
+          const { pass, rows, length } = analyze(trimmed);
+          area.innerHTML = "";
+
+          const verdict = document.createElement("div");
+          verdict.className = "verdict " + (pass ? "pass" : "fail") + " show";
+          verdict.innerHTML = pass
+            ? '<span class="mark">✓</span><span>' +
+              trimmed +
+              " is self-describing.</span>"
+            : '<span class="mark">✗</span><span>' +
+              trimmed +
+              " is not self-describing.</span>";
+          area.appendChild(verdict);
+
+          const breakdown = document.createElement("div");
+          breakdown.className = "breakdown show";
+
+          const head = document.createElement("div");
+          head.className = "bd-row head";
+          head.innerHTML =
+            "<span>Pos</span><span>Digit</span><span>Declares</span><span>Counted</span><span></span>";
+          breakdown.appendChild(head);
+
+          for (const r of rows) {
+            const row = document.createElement("div");
+            row.className = "bd-row";
+            row.innerHTML =
+              '<span class="bd-pos">' +
+              r.position +
+              "</span>" +
+              '<span class="bd-digit">' +
+              r.declared +
+              "</span>" +
+              '<span class="bd-cell ' +
+              (r.ok ? "ok" : "bad") +
+              '">' +
+              r.declared +
+              "</span>" +
+              '<span class="bd-cell ' +
+              (r.ok ? "ok" : "bad") +
+              '">' +
+              r.actual +
+              "</span>" +
+              '<span class="bd-flag">' +
+              (r.ok ? "✓" : "✗") +
+              "</span>";
+            breakdown.appendChild(row);
+          }
+
+          if (!pass) {
+            const note = document.createElement("div");
+            note.className = "verdict fail show";
+            note.innerHTML =
+              '<span class="mark">i</span><span>First mismatch determines failure. Length inspected: ' +
+              length +
+              " digits.</span>";
+            breakdown.appendChild(note);
+          }
+
+          area.appendChild(breakdown);
+        }
+
+        const form = document.getElementById("verify-form");
+        const input = document.getElementById("number-input");
+
+        form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          render(input.value);
+        });
+
+        const catalogue = document.getElementById("catalogue");
+        for (const n of KNOWN) {
+          const card = document.createElement("button");
+          card.type = "button";
+          card.className = "num-card";
+          card.textContent = String(n);
+          card.title = "Load " + n + " into the verifier";
+          card.addEventListener("click", function () {
+            input.value = String(n);
+            render(n);
+            input.focus();
+            document
+              .getElementById("verify-head")
+              .scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+          catalogue.appendChild(card);
+        }
+      })();
+    </script>
+  </body>
+</html>
